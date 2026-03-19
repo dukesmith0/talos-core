@@ -9,7 +9,7 @@ import chalk from 'chalk';
 import { resolveConfig, hasConfig } from '../lib/config.js';
 import { checkBrainIntegrity, getFileFreshness } from '../lib/brain.js';
 import { cleanStaleLocks, isLocked } from '../lib/lock.js';
-import { isQmdAvailable, getStatus } from '../lib/qmd.js';
+import { isQmdAvailable, checkQmdAvailable, getStatus } from '../lib/qmd.js';
 import { isRepo } from '../lib/git.js';
 
 const OK = chalk.green('\u2713');
@@ -44,7 +44,7 @@ export async function execute(): Promise<void> {
   check('Git', gitOk, gitOk ? gitVersion : 'not found');
 
   // QMD SDK
-  const qmdAvail = isQmdAvailable();
+  const qmdAvail = await checkQmdAvailable();
   check('QMD SDK', qmdAvail, qmdAvail ? 'available' : 'not installed');
 
   // Config

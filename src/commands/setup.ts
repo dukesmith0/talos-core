@@ -25,7 +25,7 @@ function ask(rl: ReturnType<typeof createInterface>, question: string, defaultVa
   });
 }
 
-function checkPrereq(label: string, cmd: string): { ok: boolean; version: string } {
+function checkPrereq(_label: string, cmd: string): { ok: boolean; version: string } {
   try {
     const version = execSync(cmd, { encoding: 'utf-8' }).trim();
     return { ok: true, version };
@@ -36,19 +36,37 @@ function checkPrereq(label: string, cmd: string): { ok: boolean; version: string
 
 const SCHEMAS_YAML = `fact:
   required: [type, topic, confidence]
-  optional: [source, last_verified, importance]
+  optional: [source, origin, last_verified, importance, aliases]
 episode:
   required: [type, date]
-  optional: [people, context, importance]
+  optional: [people, context, importance, aliases, origin]
 preference:
   required: [type, domain, rule]
-  optional: [strength, importance]
+  optional: [strength, importance, origin]
 reference:
   required: [type, title, source]
-  optional: [topic, confidence, importance]
+  optional: [topic, confidence, importance, aliases, origin]
 contact:
   required: [type, name]
-  optional: [company, role, met, followup, importance]
+  optional: [company, role, met, followup, importance, aliases, folder, origin]
+project:
+  required: [type, tags, status]
+  optional: [created, updated, repo, confidence, source, aliases, origin]
+plan:
+  required: [type, project, status]
+  optional: [created, goal, origin]
+idea:
+  required: [type, topic]
+  optional: [source, confidence, feasibility, impact, aliases, origin]
+course:
+  required: [type, name]
+  optional: [institution, term, status, proficiency, aliases, origin]
+application:
+  required: [type, company, role]
+  optional: [status, applied_date, followup_date, fit_score, folder, origin]
+tag:
+  required: [type, name, category]
+  optional: [aliases, description]
 `;
 
 export async function execute(): Promise<void> {
@@ -125,6 +143,33 @@ export async function execute(): Promise<void> {
     writeFileSync(join(vaultPath, '_brain', 'skill-config.yaml'), '# Skill Configuration\n', 'utf-8');
     writeFileSync(join(vaultPath, '_brain', 'hooks-config.yaml'), '# Hooks Configuration\n', 'utf-8');
 
+    // Create tracking files (hooks and skills expect these to exist)
+    const touchFiles = ['gaps.txt', 'conflicts.md', 'access-log.txt', 'changelog.md', 'search-log.txt'];
+    for (const f of touchFiles) {
+      const p = join(vaultPath, '_brain', f);
+      if (!existsSync(p)) writeFileSync(p, '', 'utf-8');
+    }
+
+    // Create content directories
+    ensureDir(join(vaultPath, 'projects'));
+    ensureDir(join(vaultPath, 'references'));
+    ensureDir(join(vaultPath, 'ideas'));
+    ensureDir(join(vaultPath, 'career', 'contacts'));
+    ensureDir(join(vaultPath, 'career', 'applications'));
+    ensureDir(join(vaultPath, 'tags', 'languages'));
+    ensureDir(join(vaultPath, 'tags', 'frameworks'));
+    ensureDir(join(vaultPath, 'tags', 'tools'));
+    ensureDir(join(vaultPath, 'tags', 'platforms'));
+    ensureDir(join(vaultPath, 'tags', 'domains'));
+    ensureDir(join(vaultPath, 'tags', 'methods'));
+    ensureDir(join(vaultPath, 'tags', 'topics'));
+
+    // Create .gitignore if missing
+    const gitignorePath = join(vaultPath, '.gitignore');
+    if (!existsSync(gitignorePath)) {
+      writeFileSync(gitignorePath, `.obsidian/workspace.json\n.obsidian/workspace-mobile.json\n.trash/\n*.sqlite\n*.sqlite-journal\n.DS_Store\nThumbs.db\n`, 'utf-8');
+    }
+
     console.log(chalk.green('  Created _brain/ files'));
 
     // Step 6: Save config
@@ -137,7 +182,8 @@ export async function execute(): Promise<void> {
       projects: {},
     };
     saveConfig(config);
-    console.log(chalk.green('  Created ~/.talos/config.yaml'));
+    console.log(chalk.green('  Created ~/.talos/config.yaml (bootstrap)'));
+    console.log(chalk.green('  Created _brain/config.yaml (full config)'));
 
     // Step 7: Install default templates + index.yaml
     const templatesInstalled = installDefaultTemplates(vaultPath);
@@ -153,7 +199,10 @@ export async function execute(): Promise<void> {
     if (gitCheck.ok) {
       if (!isRepo(vaultPath)) {
         await initRepo(vaultPath);
-        console.log(chalk.green('  Initialized git repository'));
+        // Make initial commit so sync works
+        const { commit } = await import('../lib/git.js');
+        await commit(vaultPath, 'Initial vault setup', true);
+        console.log(chalk.green('  Initialized git repository with initial commit'));
       } else {
         console.log(chalk.dim('  Git repo already initialized'));
       }

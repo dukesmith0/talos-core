@@ -77,7 +77,7 @@ export function listTemplates(vaultPath: string): string[] {
   const vaultDir = join(vaultPath, '_templates');
   if (existsSync(vaultDir)) {
     for (const f of readdirSync(vaultDir, { recursive: true }) as string[]) {
-      if (typeof f === 'string' && f.endsWith('.tmpl')) templates.add(f);
+      if (typeof f === 'string' && f.endsWith('.md')) templates.add(f);
     }
   }
 
@@ -85,7 +85,7 @@ export function listTemplates(vaultPath: string): string[] {
   const cliDir = getCliTemplatesDir();
   if (existsSync(cliDir)) {
     for (const f of readdirSync(cliDir, { recursive: true }) as string[]) {
-      if (typeof f === 'string' && f.endsWith('.tmpl')) templates.add(f);
+      if (typeof f === 'string' && f.endsWith('.md')) templates.add(f);
     }
   }
 

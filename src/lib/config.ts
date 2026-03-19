@@ -1,5 +1,9 @@
 /**
- * Config Resolution — ~/.talos/config.yaml
+ * Config Resolution — split config model
+ *
+ * Bootstrap: ~/.talos/config.yaml contains only `vault_path`
+ * Full config: $VAULT/_brain/config.yaml contains machine_id, git, projects, etc.
+ * Resolution: read bootstrap -> read vault config -> merge (vault config is primary)
  */
 
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
@@ -26,8 +30,13 @@ export interface TalosConfig {
   projects: Record<string, ProjectEntry>;
 }
 
-const CONFIG_DIR = join(homedir(), '.talos');
-const CONFIG_PATH = join(CONFIG_DIR, 'config.yaml');
+/** Bootstrap config — only vault_path */
+interface BootstrapConfig {
+  vault_path: string;
+}
+
+const BOOTSTRAP_DIR = join(homedir(), '.talos');
+const BOOTSTRAP_PATH = join(BOOTSTRAP_DIR, 'config.yaml');
 
 const DEFAULTS: TalosConfig = {
   vault_path: '',
@@ -37,16 +46,41 @@ const DEFAULTS: TalosConfig = {
   projects: {},
 };
 
+/** Read the bootstrap file (~/.talos/config.yaml) to get vault_path */
+function loadBootstrap(): BootstrapConfig | null {
+  if (!existsSync(BOOTSTRAP_PATH)) return null;
+  const raw = readFileSync(BOOTSTRAP_PATH, 'utf-8');
+  const parsed = yaml.load(raw) as Partial<BootstrapConfig> | null;
+  if (!parsed?.vault_path) return null;
+  return { vault_path: parsed.vault_path };
+}
+
+/** Read the vault config ($VAULT/_brain/config.yaml) */
+function loadVaultConfig(vaultPath: string): Partial<TalosConfig> | null {
+  const vaultConfigPath = join(vaultPath, '_brain', 'config.yaml');
+  if (!existsSync(vaultConfigPath)) return null;
+  const raw = readFileSync(vaultConfigPath, 'utf-8');
+  return (yaml.load(raw) as Partial<TalosConfig>) ?? null;
+}
+
+/**
+ * Load merged config: bootstrap vault_path + vault _brain/config.yaml
+ * Falls back to legacy single-file config for backward compatibility.
+ */
 export function loadConfig(): TalosConfig | null {
-  if (!existsSync(CONFIG_PATH)) return null;
-  const raw = readFileSync(CONFIG_PATH, 'utf-8');
-  const parsed = yaml.load(raw) as Partial<TalosConfig> | null;
-  if (!parsed) return null;
+  const bootstrap = loadBootstrap();
+  if (!bootstrap) return null;
+
+  const vaultConfig = loadVaultConfig(bootstrap.vault_path);
+
+  // Merge: vault_path from bootstrap, everything else from vault config (with defaults)
+  const merged = vaultConfig ?? {};
   return {
     ...DEFAULTS,
-    ...parsed,
-    git: { ...DEFAULTS.git, ...(parsed.git ?? {}) },
-    projects: parsed.projects ?? {},
+    ...merged,
+    vault_path: bootstrap.vault_path,
+    git: { ...DEFAULTS.git, ...(merged.git ?? {}) },
+    projects: merged.projects ?? {},
   };
 }
 
@@ -62,14 +96,35 @@ export function getVaultPath(config?: TalosConfig): string {
   return cfg.vault_path;
 }
 
+/**
+ * Save split config:
+ * - ~/.talos/config.yaml: only vault_path (bootstrap pointer)
+ * - $VAULT/_brain/config.yaml: everything else (machine_id, git, projects, etc.)
+ */
 export function saveConfig(config: TalosConfig): void {
-  if (!existsSync(CONFIG_DIR)) mkdirSync(CONFIG_DIR, { recursive: true });
-  writeFileSync(CONFIG_PATH, yaml.dump(config, { lineWidth: 120, noRefs: true }), 'utf-8');
+  // Save bootstrap pointer
+  if (!existsSync(BOOTSTRAP_DIR)) mkdirSync(BOOTSTRAP_DIR, { recursive: true });
+  const bootstrapData = { vault_path: config.vault_path };
+  writeFileSync(BOOTSTRAP_PATH, yaml.dump(bootstrapData, { lineWidth: 120, noRefs: true }), 'utf-8');
+
+  // Save vault config (everything except vault_path)
+  if (config.vault_path) {
+    const brainDir = join(config.vault_path, '_brain');
+    if (!existsSync(brainDir)) mkdirSync(brainDir, { recursive: true });
+    const vaultConfigPath = join(brainDir, 'config.yaml');
+    const { vault_path: _, ...vaultData } = config;
+    writeFileSync(vaultConfigPath, yaml.dump(vaultData, { lineWidth: 120, noRefs: true }), 'utf-8');
+  }
 }
 
 export function hasConfig(): boolean {
-  return existsSync(CONFIG_PATH);
+  return existsSync(BOOTSTRAP_PATH);
 }
 
-export function getConfigDir(): string { return CONFIG_DIR; }
-export function getConfigPath(): string { return CONFIG_PATH; }
+export function getConfigDir(): string { return BOOTSTRAP_DIR; }
+export function getConfigPath(): string { return BOOTSTRAP_PATH; }
+
+/** Path to the vault config file */
+export function getVaultConfigPath(vaultPath: string): string {
+  return join(vaultPath, '_brain', 'config.yaml');
+}

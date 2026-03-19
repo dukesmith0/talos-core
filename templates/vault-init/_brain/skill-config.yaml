@@ -1,6 +1,6 @@
 # Skill behavior preferences — edit to customize plugin skill behavior
 
-talos-storm:
+talos-brainstorm:
   min_ideas: 10
   scoring_dimensions: [feasibility, impact, novelty, effort]
 

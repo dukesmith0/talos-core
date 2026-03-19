@@ -2,6 +2,8 @@
  * update — Orchestrate full vault update: QMD + link index + word frequency
  */
 
+import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 import { resolveConfig, getVaultPath } from '../lib/config.js';
 import { acquireLock, releaseLock, isLocked } from '../lib/lock.js';
@@ -18,7 +20,16 @@ export async function execute(options: UpdateOptions = {}): Promise<void> {
   const vaultPath = getVaultPath(config);
 
   if (options.background) {
-    console.log(chalk.yellow('Background mode noted. (Run as a separate process for true background execution.)'));
+    // Fork a detached child process that runs talos update (without --background)
+    const cliPath = fileURLToPath(new URL('../cli.js', import.meta.url));
+    const child = spawn(process.execPath, [cliPath, 'update'], {
+      detached: true,
+      stdio: 'ignore',
+      cwd: vaultPath,
+    });
+    child.unref();
+    console.log(chalk.dim(`Background update started (pid: ${child.pid})`));
+    return;
   }
 
   // Check / acquire lock

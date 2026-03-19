@@ -106,11 +106,22 @@ export function logChange(vaultPath: string, entry: string): void {
   }
 
   let content = readFileSync(path, 'utf-8');
-  if (content.includes(`## ${date}`)) {
-    content = content.replace(`## ${date}\n`, `## ${date}\n- ${time} ${entry}\n`);
+  const dateSection = `## ${date}`;
+  const dateSectionIndex = content.indexOf(dateSection);
+  if (dateSectionIndex !== -1) {
+    // Insert entry right after the date section header line
+    const insertPos = content.indexOf('\n', dateSectionIndex) + 1;
+    content = content.slice(0, insertPos) + `- ${time} ${entry}\n` + content.slice(insertPos);
   } else {
-    // Add new date section at top (after header)
-    content = content.replace('# Brain Changelog\n', `# Brain Changelog\n\n## ${date}\n- ${time} ${entry}\n`);
+    // Add new date section after the first heading (# Brain Changelog)
+    const headerIndex = content.indexOf('# Brain Changelog');
+    if (headerIndex !== -1) {
+      const insertPos = content.indexOf('\n', headerIndex) + 1;
+      content = content.slice(0, insertPos) + `\n${dateSection}\n- ${time} ${entry}\n` + content.slice(insertPos);
+    } else {
+      // No header — just prepend
+      content = `# Brain Changelog\n\n${dateSection}\n- ${time} ${entry}\n` + content;
+    }
   }
   writeFileSync(path, content, 'utf-8');
 }

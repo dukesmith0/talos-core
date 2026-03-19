@@ -74,13 +74,19 @@ export async function execute(options: IndexOptions = {}): Promise<void> {
     }
   }
 
+  // Build filename lookup map for O(1) link resolution
+  const filenameLookup = new Map<string, string>();
+  for (const key of Object.keys(index.files)) {
+    const baseName = key.split('/').pop()?.replace('.md', '') ?? '';
+    if (baseName) filenameLookup.set(baseName.toLowerCase(), key);
+    // Also map the full relative path without .md
+    filenameLookup.set(key.replace('.md', '').toLowerCase(), key);
+  }
+
   // Build reverse links (linked_from)
   for (const [filePath, entry] of Object.entries(index.files)) {
     for (const link of entry.links_to) {
-      // Find the target file that matches this link name
-      const targetKey = Object.keys(index.files).find(
-        k => k.endsWith(`${link}.md`) || k === `${link}.md`
-      );
+      const targetKey = filenameLookup.get(link.toLowerCase());
       if (targetKey && index.files[targetKey]) {
         if (!index.files[targetKey].linked_from.includes(filePath)) {
           index.files[targetKey].linked_from.push(filePath);
@@ -108,4 +114,43 @@ export async function execute(options: IndexOptions = {}): Promise<void> {
 
   console.log(chalk.green(`Index built: ${totalFiles} files, ${totalTags} tags`));
   console.log(chalk.dim(`  Processed: ${processed}, Skipped (unchanged): ${skipped}`));
+
+  // Re-link pass: scan all processed files for linkable entities
+  if (processed > 0) {
+    const { writeFileSync, readFileSync } = await import('fs');
+    const { getEntityNames, clearEntityCache } = await import('../lib/registry.js');
+    clearEntityCache(); // Force fresh entity list after index rebuild
+    const { addWikilinks } = await import('../lib/vault.js');
+    const allEntities = getEntityNames(vaultPath);
+    let linked = 0;
+
+    if (allEntities.length > 0) {
+      for (const relPath of files) {
+        const absPath = join(vaultPath, relPath);
+        const selfName = relPath.replace(/\\/g, '/').split('/').pop()?.replace('.md', '') ?? '';
+        // Filter out self-links: don't link a file to its own name
+        const entities = allEntities.filter(e => e.name.toLowerCase() !== selfName.toLowerCase());
+        if (entities.length === 0) continue;
+
+        try {
+          // Read raw file content (preserve original frontmatter formatting)
+          const raw = readFileSync(absPath, 'utf-8');
+          let withLinks = addWikilinks(raw, entities);
+          // Preserve original trailing newline state
+          if (!raw.endsWith('\n') && withLinks.endsWith('\n')) {
+            withLinks = withLinks.replace(/\n+$/, '');
+          }
+          if (withLinks !== raw) {
+            writeFileSync(absPath, withLinks, 'utf-8');
+            linked++;
+          }
+        } catch {
+          // Skip unreadable files
+        }
+      }
+      if (linked > 0) {
+        console.log(chalk.green(`  Re-linked: ${linked} files updated with new wikilinks`));
+      }
+    }
+  }
 }

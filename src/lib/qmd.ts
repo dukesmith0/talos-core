@@ -82,22 +82,31 @@ export function getDbPath(): string {
   return `${home}/.cache/qmd/index.sqlite`;
 }
 
-export function isQmdAvailable(): boolean {
+let _qmdAvailable: boolean | null = null;
+
+export async function checkQmdAvailable(): Promise<boolean> {
+  if (_qmdAvailable !== null) return _qmdAvailable;
   try {
-    // Check if @tobilu/qmd is importable
-    require.resolve?.('@tobilu/qmd');
-    return true;
+    await import('@tobilu/qmd');
+    _qmdAvailable = true;
   } catch {
-    // ESM fallback — if we got this far, the import at top didn't fail
-    return true;
+    _qmdAvailable = false;
   }
+  return _qmdAvailable;
 }
 
-/** Register cleanup on process exit. */
+export function isQmdAvailable(): boolean {
+  // Synchronous check — returns cached result or true (optimistic)
+  // Call checkQmdAvailable() first for accurate result
+  return _qmdAvailable ?? true;
+}
+
+/** Register cleanup on process exit (idempotent). */
+let _cleanupRegistered = false;
 export function registerCleanup(): void {
-  const cleanup = async () => {
-    await closeStore();
-  };
+  if (_cleanupRegistered) return;
+  _cleanupRegistered = true;
+  const cleanup = async () => { await closeStore(); };
   process.on('beforeExit', cleanup);
   process.on('SIGINT', async () => { await cleanup(); process.exit(0); });
   process.on('SIGTERM', async () => { await cleanup(); process.exit(0); });

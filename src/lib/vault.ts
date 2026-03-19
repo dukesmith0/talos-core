@@ -65,17 +65,102 @@ export function extractTags(text: string, frontmatter?: Record<string, unknown>)
 
 /** Add [[wikilinks]] for entity names found in text. Returns modified text. */
 export function addWikilinks(text: string, entities: Array<{ name: string; aliases: string[] }>): string {
-  let modified = text;
-  for (const entity of entities) {
-    const names = [entity.name, ...entity.aliases];
-    for (const name of names) {
-      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`(?<!\\[\\[)\\b(${escaped})\\b(?!\\]\\])`, 'i');
-      // Only link first occurrence
-      modified = modified.replace(regex, `[[${entity.name}|$1]]`);
+  // Split into zones: frontmatter, code blocks (skip), and normal text (link)
+  const lines = text.split('\n');
+  let inFrontmatter = false;
+  let inCodeBlock = false;
+  let frontmatterDone = false;
+  const zones: Array<{ text: string; skip: boolean }> = [];
+  let currentZone = '';
+  let currentSkip = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const isFirstLine = i === 0;
+
+    // Frontmatter detection
+    if (isFirstLine && line.trim() === '---') {
+      inFrontmatter = true;
+      if (currentZone) zones.push({ text: currentZone, skip: currentSkip });
+      currentZone = line + '\n';
+      currentSkip = true;
+      continue;
     }
+    if (inFrontmatter && line.trim() === '---') {
+      currentZone += line + '\n';
+      zones.push({ text: currentZone, skip: true });
+      currentZone = '';
+      currentSkip = false;
+      inFrontmatter = false;
+      frontmatterDone = true;
+      continue;
+    }
+
+    // Code block detection
+    if (!inFrontmatter && line.trimStart().startsWith('```')) {
+      if (!inCodeBlock) {
+        // Entering code block
+        if (currentZone) zones.push({ text: currentZone, skip: currentSkip });
+        currentZone = line + '\n';
+        currentSkip = true;
+        inCodeBlock = true;
+      } else {
+        // Exiting code block
+        currentZone += line + '\n';
+        zones.push({ text: currentZone, skip: true });
+        currentZone = '';
+        currentSkip = false;
+        inCodeBlock = false;
+      }
+      continue;
+    }
+
+    currentZone += line + '\n';
   }
-  return modified;
+  if (currentZone) zones.push({ text: currentZone, skip: currentSkip });
+
+  // Apply wikilinks only to non-skip zones
+  const result = zones.map(zone => {
+    if (zone.skip) return zone.text;
+    let modified = zone.text;
+    for (const entity of entities) {
+      const names = [entity.name, ...entity.aliases];
+      for (const name of names) {
+        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // Match whole words only: not preceded/followed by [, ], or -
+        const regex = new RegExp(`(?<![-\\[])\\b(${escaped})\\b(?![-\\]])`, 'i');
+        modified = modified.replace(regex, `[[${entity.name}|$1]]`);
+      }
+    }
+    return modified;
+  }).join('');
+
+  // Remove trailing newline that was added by split/join
+  return result.endsWith('\n') && !text.endsWith('\n') ? result.slice(0, -1) : result;
+}
+
+/**
+ * Write a vault file with automatic wikilink insertion.
+ * Requires vaultPath to resolve entities — use this for vault content writes.
+ * Falls back to regular writeFile if entity resolution fails.
+ */
+export async function writeFileLinked(
+  filePath: string,
+  content: string,
+  vaultPath: string,
+  frontmatter?: Record<string, unknown>
+): Promise<void> {
+  try {
+    // Dynamic import to avoid circular dependency (registry → brain → vault)
+    const { getEntityNames } = await import('./registry.js');
+    const entities = getEntityNames(vaultPath);
+    if (entities.length > 0) {
+      content = addWikilinks(content, entities);
+    }
+  } catch {
+    // If registry not available, write without linking
+  }
+  writeFile(filePath, content, frontmatter);
 }
 
 /** Get daily note path for a date. */
@@ -107,8 +192,11 @@ export function appendAutoLog(message: string, vaultPath: string): void {
   }
 
   let content = readFileSync(notePath, 'utf-8');
-  if (content.includes('## Auto-Log')) {
-    content = content.replace('## Auto-Log\n', `## Auto-Log\n${entry}`);
+  const autoLogIndex = content.indexOf('## Auto-Log');
+  if (autoLogIndex !== -1) {
+    // Insert entry right after the "## Auto-Log\n" header line
+    const insertPos = content.indexOf('\n', autoLogIndex) + 1;
+    content = content.slice(0, insertPos) + entry + content.slice(insertPos);
   } else {
     content += `\n## Auto-Log\n\n${entry}`;
   }

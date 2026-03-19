@@ -1,5 +1,5 @@
 /**
- * TALOS Core CLI — 9 commands for brain service operations
+ * TALOS Core CLI — 12 commands for brain service operations
  */
 
 import { Command } from 'commander';
@@ -71,9 +71,10 @@ program
 program
   .command('index')
   .description('Build link graph + tag index → _brain/link-index.yaml')
-  .action(async () => {
+  .option('--full', 'Full rebuild (ignore incremental cache)')
+  .action(async (options: { full?: boolean }) => {
     const { execute } = await import('./commands/index.js');
-    await execute();
+    await execute({ full: options.full });
   });
 
 program
@@ -98,6 +99,24 @@ program
   .action(async (action, name) => {
     const { execute } = await import('./commands/template.js');
     await execute({ subcommand: action ?? 'list', name });
+  });
+
+program
+  .command('search <query>')
+  .description('Search vault via QMD (modes: hybrid, lex, vec)')
+  .option('-m, --mode <mode>', 'Search mode: hybrid (default), lex, vec')
+  .option('-n, --limit <n>', 'Max results (default: 10)')
+  .action(async (query, opts) => {
+    const { execute } = await import('./commands/search.js');
+    await execute({ query, mode: opts.mode, limit: opts.limit });
+  });
+
+program
+  .command('doctor')
+  .description('Auto-repair brain files, clean stale locks, trim logs')
+  .action(async () => {
+    const { execute } = await import('./commands/doctor.js');
+    await execute();
   });
 
 program.parse();
