@@ -26,7 +26,7 @@ export async function execute(options: LinkOptions): Promise<void> {
 
   const entities = getEntityNames(vaultPath);
   if (entities.length === 0) {
-    console.log(chalk.yellow('No entities found in link index. Run "talos index" first.'));
+    console.log(chalk.yellow('No entities found in link index. Run "loci index" first.'));
     return;
   }
 

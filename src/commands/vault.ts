@@ -14,7 +14,7 @@ export async function execute(options: VaultOptions = {}): Promise<void> {
   const vaultPath = config.vault_path;
 
   if (!vaultPath) {
-    console.error(chalk.red('No vault path configured. Run "talos setup" first.'));
+    console.error(chalk.red('No vault path configured. Run "loci setup" first.'));
     process.exitCode = 1;
     return;
   }

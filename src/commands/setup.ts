@@ -70,7 +70,7 @@ tag:
 `;
 
 export async function execute(): Promise<void> {
-  console.log(chalk.bold('\nTALOS Setup Wizard\n'));
+  console.log(chalk.bold('\nLOCI Setup Wizard\n'));
 
   // Step 1: Check prerequisites
   console.log(chalk.bold('Checking prerequisites...\n'));
@@ -97,8 +97,11 @@ export async function execute(): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
 
   try {
-    const defaultVaultPath = join(homedir(), 'talos-vault');
-    const vaultPath = await ask(rl, 'Vault path', defaultVaultPath);
+    const defaultVaultPath = join(homedir(), 'obsidian-vault', 'loci');
+    console.log(chalk.dim('LOCI creates a subfolder inside your Obsidian vault.'));
+    console.log(chalk.dim('If you already have a vault, enter: /path/to/your-vault/loci'));
+    console.log(chalk.dim('If starting fresh, use the default.\n'));
+    const vaultPath = await ask(rl, 'LOCI path (inside your vault)', defaultVaultPath);
     const userName = await ask(rl, 'Your name');
     const userDescription = await ask(rl, 'Brief description (who you are, what you do)');
     const currentFocus = await ask(rl, 'Current focus / top priority');
@@ -174,7 +177,7 @@ export async function execute(): Promise<void> {
       projects: {},
     };
     saveConfig(config);
-    console.log(chalk.green('  Created ~/.talos/config.yaml (bootstrap)'));
+    console.log(chalk.green('  Created ~/.loci/config.yaml (bootstrap)'));
     console.log(chalk.green('  Created _brain/config.yaml (full config)'));
 
     // Step 7: Install default templates + index.yaml
@@ -288,16 +291,16 @@ export async function execute(): Promise<void> {
       console.log(chalk.green('\n  Embeddings complete'));
     } catch (err) {
       console.log(chalk.yellow(`  QMD setup: ${(err as Error).message}`));
-      console.log(chalk.dim('  You can run "talos update" later to set up search.'));
+      console.log(chalk.dim('  You can run "loci update" later to set up search.'));
     }
 
     // Step 10: Next steps
     console.log(chalk.bold('\n\nSetup complete!\n'));
     console.log('Next steps:');
     console.log(chalk.dim('  1. Add notes to your vault'));
-    console.log(chalk.dim('  2. Run "talos update" to build indexes'));
-    console.log(chalk.dim('  3. Run "talos health" to verify everything'));
-    console.log(chalk.dim('  4. Start a session with Claude using TALOS mode'));
+    console.log(chalk.dim('  2. Run "loci update" to build indexes'));
+    console.log(chalk.dim('  3. Run "loci health" to verify everything'));
+    console.log(chalk.dim('  4. Start a session with Claude using LOCI mode'));
     console.log('');
   } finally {
     rl.close();

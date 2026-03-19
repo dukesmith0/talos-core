@@ -20,7 +20,7 @@ export async function execute(options: UpdateOptions = {}): Promise<void> {
   const vaultPath = getVaultPath(config);
 
   if (options.background) {
-    // Fork a detached child process that runs talos update (without --background)
+    // Fork a detached child process that runs loci update (without --background)
     const cliPath = fileURLToPath(new URL('../cli.js', import.meta.url));
     const child = spawn(process.execPath, [cliPath, 'update'], {
       detached: true,
@@ -49,7 +49,7 @@ export async function execute(options: UpdateOptions = {}): Promise<void> {
   registerCleanup();
 
   try {
-    console.log(chalk.bold('\nTALOS Update\n'));
+    console.log(chalk.bold('\nLOCI Update\n'));
 
     // Step 1: QMD update index
     console.log(chalk.dim('Updating QMD index...'));

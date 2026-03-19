@@ -37,7 +37,7 @@ export async function execute(options: TemplateOptions): Promise<void> {
       break;
     default:
       console.error(chalk.red(`Unknown sub-command: ${options.subcommand}`));
-      console.log(chalk.dim('Usage: talos template <list|show|reset> [name]'));
+      console.log(chalk.dim('Usage: loci template <list|show|reset> [name]'));
       process.exitCode = 1;
   }
 }
@@ -58,7 +58,7 @@ function listCmd(vaultPath: string): void {
 
 function showCmd(vaultPath: string, name?: string): void {
   if (!name) {
-    console.error(chalk.red('Template name required. Usage: talos template show <name>'));
+    console.error(chalk.red('Template name required. Usage: loci template show <name>'));
     process.exitCode = 1;
     return;
   }
@@ -86,7 +86,7 @@ function showCmd(vaultPath: string, name?: string): void {
 
 function resetCmd(vaultPath: string, name?: string): void {
   if (!name) {
-    console.error(chalk.red('Template name required. Usage: talos template reset <name>'));
+    console.error(chalk.red('Template name required. Usage: loci template reset <name>'));
     process.exitCode = 1;
     return;
   }

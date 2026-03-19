@@ -1,12 +1,12 @@
-# TALOS
+# LOCI
 
 **The Automaton for Local Operations and Search** — a persistent second brain for Claude Code.
 
-TALOS gives Claude persistent memory across sessions via an Obsidian vault. The CLI manages brain infrastructure (indexing, linking, search). The [marketplace plugins](https://github.com/dukesmith0/talos-marketplace) teach Claude how to use it.
+LOCI gives Claude persistent memory across sessions via an Obsidian vault. The CLI manages brain infrastructure (indexing, linking, search). The [marketplace plugins](https://github.com/dukesmith0/loci-marketplace) teach Claude how to use it.
 
-## Why TALOS?
+## Why LOCI?
 
-Claude forgets everything between sessions. TALOS fixes that:
+Claude forgets everything between sessions. LOCI fixes that:
 - **Remember** what you learned, who you met, what you decided
 - **Search** across all your knowledge with semantic + keyword search
 - **Track** projects, bugs, decisions, and risks persistently
@@ -15,45 +15,86 @@ Claude forgets everything between sessions. TALOS fixes that:
 
 ---
 
+## Prerequisites
+
+| Dependency | Required? | Install |
+|-----------|-----------|---------|
+| **Node.js** >=18 | Yes | [nodejs.org](https://nodejs.org/) |
+| **Git** | Yes | [git-scm.com](https://git-scm.com/) |
+| **Claude Code** | Yes | CLI or VS Code extension |
+| **QMD** | Yes (auto-installed) | Bundled with `npm install` |
+| **Obsidian** | Recommended | [obsidian.md](https://obsidian.md/) |
+
 ## Quick Start
 
+### Step 1: Install QMD (search engine)
 ```bash
-# 1. Install
-git clone https://github.com/dukesmith0/talos-core.git
-cd talos-core && npm install && npm run build && npm link
-
-# 2. Create your brain
-talos setup
-
-# 3. Add the plugin marketplace
-claude plugin marketplace add dukesmith0/talos-marketplace
-
-# 4. Install plugins (talos-brain is required)
-claude plugin install talos-brain@talos-marketplace
-claude plugin install talos-code@talos-marketplace     # dev workflows
-claude plugin install talos-career@talos-marketplace    # job search
-claude plugin install talos-study@talos-marketplace     # learning
-claude plugin install talos-thoughts@talos-marketplace  # brainstorming
-
-# 5. Verify
-talos health
+npm install -g @tobilu/qmd
+claude mcp add qmd --github tobi/qmd
 ```
 
-### Permissions
+### Step 2: Install LOCI Core (CLI)
+```bash
+git clone https://github.com/dukesmith0/loci-core.git
+cd loci-core && npm install && npm run build && npm link
+```
 
-Add to `~/.claude/settings.json`:
+### Step 3: Create your vault
+```bash
+loci setup
+```
+Follow the prompts — enter your vault path, name, and current focus. This creates the full vault structure, Obsidian config (graph colors, QuickAdd macros, Bases views), brain files, and QMD index.
+
+### Step 4: Add plugins to Claude Code
+```bash
+claude plugin marketplace add dukesmith0/loci-marketplace
+claude plugin install loci-brain@loci-marketplace
+claude plugin install loci-code@loci-marketplace
+claude plugin install loci-career@loci-marketplace
+claude plugin install loci-study@loci-marketplace
+claude plugin install loci-thoughts@loci-marketplace
+```
+
+### Step 5: Verify
+```bash
+loci health
+loci stats
+```
+
+### Claude Code Permissions
+
+Add to `~/.claude/settings.json` to avoid permission popups for vault operations:
+
 ```json
 {
   "permissions": {
     "allow": [
-      "Bash(talos *)",
-      "Read(*your-vault-name*)",
-      "Edit(*your-vault-name*)",
-      "Write(*your-vault-name*)"
+      "Bash(loci *)",
+      "Bash(cd *loci*)",
+      "Read(*your-vault-name*/**)",
+      "Edit(*your-vault-name*/**)",
+      "Write(*your-vault-name*/**)"
     ]
   }
 }
 ```
+
+Replace `*your-vault-name*` with your actual vault folder name (e.g., `loci-vault`).
+
+---
+
+## Who Is LOCI For?
+
+| You are a... | Install | Start with |
+|-------------|---------|-----------|
+| **Anyone** | `loci-brain` | `/loci-add` → `/loci-query` → `/loci-reflect` |
+| **Developer** | + `loci-code` | `/loci-init` → `/loci-plan` → `/loci-go` |
+| **Student** | + `loci-study` | `/loci-notes` → `/loci-study` → `/loci-teach` |
+| **Strategist** | + `loci-thoughts` | `/loci-brainstorm` → `/loci-ideate` → `/loci-research` |
+| **Job Seeker** | + `loci-career` | `/loci-apply` → `/loci-contact` → `/loci-prep` |
+| **Researcher** | + `loci-thoughts` | `/loci-add` (papers) → `/loci-research` → `/loci-hub` |
+| **PM** | + `loci-code` | `/loci-plan` → `/loci-go` → `/loci-ralph` → `/loci-wrapup` |
+| **Writer** | + `loci-thoughts` | `/loci-brainstorm` → `/loci-add` → `/loci-query` |
 
 ---
 
@@ -62,49 +103,49 @@ Add to `~/.claude/settings.json`:
 ### Daily Use
 | Command | Plugin | What it does |
 |---------|--------|-------------|
-| `/talos-query` | Brain | Search vault + project. Auto-selects depth. |
-| `/talos-add` | Brain | Store knowledge. Auto-detects format. `--pin`/`--unpin` for working memory. |
-| `/talos-log` | Brain | Append timestamped entry to daily note. |
-| `/talos-morning` | Brain | Briefing: calendar, priorities, open threads. |
+| `/loci-query` | Brain | Search vault + project. Auto-selects depth. |
+| `/loci-add` | Brain | Store knowledge. Auto-detects format. `--pin`/`--unpin` for working memory. |
+| `/loci-log` | Brain | Append timestamped entry to daily note. |
+| `/loci-morning` | Brain | Briefing: calendar, priorities, open threads. |
 
 ### Session
-| `/talos-wrapup` | Brain | Session close: update .talos, reindex, sync. |
+| `/loci-wrapup` | Brain | Session close: update .loci, reindex, sync. |
 
 ### Development
-| `/talos-init` | Code | Scaffold `.talos/` project framework. |
-| `/talos-plan` | Code | Task → checkable plan with vault context. |
-| `/talos-go` | Code | Execute next plan item. |
-| `/talos-ralph` | Code | Iterative loop with stuck detection. |
-| `/talos-oneshot` | Code | Quick task, no plan. |
-| `/talos-review` | Code | Code review with severity ratings. |
-| `/talos-simplify` | Code | Refactor for clarity. |
-| `/talos-diff` | Code | Git history analysis by topic. |
-| `/talos-risks` | Code | Security/architecture risk analysis. |
-| `/talos-consolidate` | Code | Compress `.talos/` files for token efficiency. |
+| `/loci-init` | Code | Scaffold `.loci/` project framework. |
+| `/loci-plan` | Code | Task → checkable plan with vault context. |
+| `/loci-go` | Code | Execute next plan item. |
+| `/loci-ralph` | Code | Iterative loop with stuck detection. |
+| `/loci-oneshot` | Code | Quick task, no plan. |
+| `/loci-review` | Code | Code review with severity ratings. |
+| `/loci-simplify` | Code | Refactor for clarity. |
+| `/loci-diff` | Code | Git history analysis by topic. |
+| `/loci-risks` | Code | Security/architecture risk analysis. |
+| `/loci-consolidate` | Code | Compress `.loci/` files for token efficiency. |
 
 ### Career
-| `/talos-apply` | Career | Job fit scoring → `career/applications/`. |
-| `/talos-contact` | Career | Create/lookup contacts → `career/contacts/`. |
-| `/talos-followup` | Career | Scan for overdue follow-ups. |
-| `/talos-prep` | Career | Interview/meeting prep with vault context. |
+| `/loci-apply` | Career | Job fit scoring → `career/applications/`. |
+| `/loci-contact` | Career | Create/lookup contacts → `career/contacts/`. |
+| `/loci-followup` | Career | Scan for overdue follow-ups. |
+| `/loci-prep` | Career | Interview/meeting prep with vault context. |
 
 ### Study
-| `/talos-study` | Study | Socratic tutoring by proficiency level. |
-| `/talos-teach` | Study | Feynman technique evaluation. |
-| `/talos-notes` | Study | Course notes to vault. |
-| `/talos-learn` | Study | Quick concept lookup. |
+| `/loci-study` | Study | Socratic tutoring by proficiency level. |
+| `/loci-teach` | Study | Feynman technique evaluation. |
+| `/loci-notes` | Study | Course notes to vault. |
+| `/loci-learn` | Study | Quick concept lookup. |
 
 ### Ideas
-| `/talos-brainstorm` | Ideas | SCAMPER brainstorming with scoring. |
-| `/talos-ideate` | Ideas | Multi-perspective idea evaluation. |
-| `/talos-research` | Ideas | Deep research: vault + web. |
-| `/talos-think` | Ideas | Socratic reasoning walkthrough. |
+| `/loci-brainstorm` | Ideas | SCAMPER brainstorming with scoring. |
+| `/loci-ideate` | Ideas | Multi-perspective idea evaluation. |
+| `/loci-research` | Ideas | Deep research: vault + web. |
+| `/loci-think` | Ideas | Socratic reasoning walkthrough. |
 
 ### Maintenance
-| `/talos-reflect` | Brain | Pattern analysis on vault activity. |
-| `/talos-maintain` | Brain | Diagnose → fix → clean → report. |
-| `/talos-sync` | Brain | Git sync vault. `--status` for brain report. |
-| `/talos-help` | Brain | Full command reference. |
+| `/loci-reflect` | Brain | Pattern analysis on vault activity. |
+| `/loci-maintain` | Brain | Diagnose → fix → clean → report. |
+| `/loci-sync` | Brain | Git sync vault. `--status` for brain report. |
+| `/loci-help` | Brain | Full command reference. |
 
 ---
 
@@ -112,18 +153,19 @@ Add to `~/.claude/settings.json`:
 
 | Command | Description |
 |---------|-------------|
-| `talos setup` | First-run onboarding |
-| `talos health` | System health check |
-| `talos doctor` | Auto-repair brain files |
-| `talos update` | Reindex + embed + rebuild indexes |
-| `talos sync` | Git pull + push vault |
-| `talos vault` | Print vault path |
-| `talos log <msg>` | Daily note entry |
-| `talos link <file>` | Add wikilinks to a file |
-| `talos index [--full]` | Build link graph + tag index |
-| `talos wordfreq` | Build term frequency index |
-| `talos search <query>` | Search vault (modes: hybrid, lex, vec) |
-| `talos template` | Manage templates (list, show, reset) |
+| `loci setup` | First-run onboarding |
+| `loci health` | System health check |
+| `loci doctor` | Auto-repair brain files |
+| `loci update` | Reindex + embed + rebuild indexes |
+| `loci sync` | Git pull + push vault |
+| `loci vault` | Print vault path |
+| `loci log <msg>` | Daily note entry |
+| `loci link <file>` | Add wikilinks to a file |
+| `loci index [--full]` | Build link graph + tag index |
+| `loci wordfreq` | Build term frequency index |
+| `loci search <query>` | Search vault (modes: hybrid, lex, vec) |
+| `loci stats` | Vault quality metrics (origin, hub health, TF-IDF) |
+| `loci template` | Manage templates (list, show, reset) |
 
 ---
 
@@ -146,6 +188,14 @@ vault/
 ├── projects/            # Project overview notes
 ├── references/          # Reference material, facts
 ├── ideas/               # Brainstorms, proposals
+├── tags/                # Concept hub pages (dynamically created)
+│   ├── languages/       # Python, TypeScript, etc.
+│   ├── frameworks/      # React, FastAPI, etc.
+│   ├── tools/           # Arduino, CMake, etc.
+│   ├── platforms/       # GitHub, Obsidian, etc.
+│   ├── domains/         # Aerospace, Engineering, etc.
+│   ├── methods/         # PID, Sensor Fusion, etc.
+│   └── topics/          # General concepts
 └── career/
     ├── contacts/        # People
     └── applications/    # Job applications
@@ -155,24 +205,32 @@ vault/
 
 ## Obsidian Integration
 
-Open your vault directory in Obsidian for a visual knowledge graph, daily note navigation, and Dataview queries.
+Open your vault directory in Obsidian. LOCI setup creates graph color config, QuickAdd macros, and Bases database views automatically.
+
+### Required Plugins
+
+These plugins are needed for LOCI features to render correctly:
+
+| Plugin | Why Required | Install |
+|--------|-------------|---------|
+| **Dataview** | Hub live connections, dashboards, knowledge health queries | Community plugins → Dataview |
+| **QuickAdd** | Quick capture macros (fact, reference, contact, application) | Community plugins → QuickAdd |
 
 ### Recommended Plugins
 
 | Plugin | Purpose |
 |--------|---------|
-| **Calendar** | Navigate daily notes by date |
-| **Dataview** | Query notes by frontmatter (type, tags, status) |
-| **Git** | Auto-backup vault (10 min interval) |
+| **Calendar** | Navigate daily notes by clicking dates |
+| **Git** | Auto-backup vault every 10 min |
 | **Templater** | Use `_templates/` for new notes |
-| **QuickAdd** | Quick capture to daily note |
-| **Data Files Editor** | Edit YAML/JSON brain files |
+| **Data Files Editor** | Edit YAML/JSON brain files in Obsidian |
 | **New 3D Graph** | 3D knowledge graph visualization |
 
-### Tips
-- **Templater**: Set template folder to `_templates`
-- **Git**: Disable pull on startup (TALOS handles sync)
-- **Excluded folders**: Add `_brain` to Settings → Files & Links → Excluded
+### Setup After Installing Plugins
+1. **Templater**: Settings → Template folder → `_templates`
+2. **Git**: Settings → Disable "Pull on startup" (LOCI handles sync)
+3. **QuickAdd**: Macros are pre-configured by `loci setup` — just enable the plugin
+4. **Excluded folders**: Settings → Files & Links → add `_brain` to excluded
 
 ---
 
@@ -180,8 +238,8 @@ Open your vault directory in Obsidian for a visual knowledge graph, daily note n
 
 | Component | Role |
 |-----------|------|
-| **talos-core** | CLI for vault operations (Node.js/TypeScript) |
-| **talos-marketplace** | Claude Code plugins (5 plugins, 32 skills, 15 agents) |
+| **loci-core** | CLI for vault operations (Node.js/TypeScript) |
+| **loci-marketplace** | Claude Code plugins (5 plugins, 32 skills, 13 agents) |
 | **Obsidian vault** | Knowledge storage (markdown + YAML frontmatter) |
 | **QMD** | Search engine (BM25 + vector + hybrid reranking) |
 
@@ -190,7 +248,7 @@ Open your vault directory in Obsidian for a visual knowledge graph, daily note n
 | System | Storage | Access |
 |--------|---------|--------|
 | Working | Context + crash-buffer | SessionStart hook |
-| Episodic | Daily notes | `talos log` |
+| Episodic | Daily notes | `loci log` |
 | Semantic | Typed vault notes | QMD search |
 | Identity | `_brain/profile.md` | Every session |
 | Pinned | `_brain/pinned/*.md` | Every session |

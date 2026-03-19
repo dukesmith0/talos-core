@@ -1,5 +1,5 @@
 /**
- * TALOS Core CLI — 12 commands for brain service operations
+ * LOCI Core CLI — 12 commands for brain service operations
  */
 
 import { Command } from 'commander';
@@ -8,8 +8,8 @@ import { registerCleanup } from './lib/qmd.js';
 const program = new Command();
 
 program
-  .name('talos')
-  .description('TALOS — The Automaton for Local Operations and Search')
+  .name('loci')
+  .description('LOCI — A persistent second brain for Claude Code (method of loci)')
   .version('1.0.0');
 
 // Register QMD cleanup on exit

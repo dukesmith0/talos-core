@@ -1,11 +1,11 @@
 {
-  "name": "talos-core",
+  "name": "loci-core",
   "version": "1.0.0",
-  "description": "TALOS — The Automaton for Local Operations and Search. A persistent second brain service for Obsidian vaults.",
+  "description": "LOCI — A persistent second brain for Claude Code (method of loci)",
   "type": "module",
   "main": "dist/cli.js",
   "bin": {
-    "talos": "./bin/talos"
+    "loci": "./bin/loci"
   },
   "scripts": {
     "build": "tsc",

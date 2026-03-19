@@ -28,7 +28,7 @@ function warn(label: string, detail?: string): void {
 }
 
 export async function execute(): Promise<void> {
-  console.log(chalk.bold('\nTALOS Health Check\n'));
+  console.log(chalk.bold('\nLOCI Health Check\n'));
 
   // Node.js
   const nodeVersion = process.version;
@@ -49,7 +49,7 @@ export async function execute(): Promise<void> {
 
   // Config
   const configExists = hasConfig();
-  check('Config', configExists, configExists ? 'found' : 'missing — run "talos setup"');
+  check('Config', configExists, configExists ? 'found' : 'missing — run "loci setup"');
   if (!configExists) {
     console.log(chalk.red('\nCannot continue health checks without config.\n'));
     process.exitCode = 1;
@@ -87,12 +87,12 @@ export async function execute(): Promise<void> {
   if (linkFresh.exists) {
     const hours = Math.floor(linkFresh.ageMinutes / 60);
     if (linkFresh.ageMinutes > 1440) {
-      warn('Link index', `${hours}h old — consider running "talos update"`);
+      warn('Link index', `${hours}h old — consider running "loci update"`);
     } else {
       check('Link index', true, `${linkFresh.ageMinutes < 60 ? linkFresh.ageMinutes + 'm' : hours + 'h'} old`);
     }
   } else {
-    warn('Link index', 'not found — run "talos update"');
+    warn('Link index', 'not found — run "loci update"');
   }
 
   // Word freq freshness
@@ -101,12 +101,12 @@ export async function execute(): Promise<void> {
   if (wordFresh.exists) {
     const hours = Math.floor(wordFresh.ageMinutes / 60);
     if (wordFresh.ageMinutes > 1440) {
-      warn('Word frequency', `${hours}h old — consider running "talos update"`);
+      warn('Word frequency', `${hours}h old — consider running "loci update"`);
     } else {
       check('Word frequency', true, `${wordFresh.ageMinutes < 60 ? wordFresh.ageMinutes + 'm' : hours + 'h'} old`);
     }
   } else {
-    warn('Word frequency', 'not found — run "talos update"');
+    warn('Word frequency', 'not found — run "loci update"');
   }
 
   // QMD status

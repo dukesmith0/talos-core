@@ -1,7 +1,7 @@
 /**
  * Config Resolution — split config model
  *
- * Bootstrap: ~/.talos/config.yaml contains only `vault_path`
+ * Bootstrap: ~/.loci/config.yaml contains only `vault_path`
  * Full config: $VAULT/_brain/config.yaml contains machine_id, git, projects, etc.
  * Resolution: read bootstrap -> read vault config -> merge (vault config is primary)
  */
@@ -35,7 +35,7 @@ interface BootstrapConfig {
   vault_path: string;
 }
 
-const BOOTSTRAP_DIR = join(homedir(), '.talos');
+const BOOTSTRAP_DIR = join(homedir(), '.loci');
 const BOOTSTRAP_PATH = join(BOOTSTRAP_DIR, 'config.yaml');
 
 const DEFAULTS: TalosConfig = {
@@ -46,7 +46,7 @@ const DEFAULTS: TalosConfig = {
   projects: {},
 };
 
-/** Read the bootstrap file (~/.talos/config.yaml) to get vault_path */
+/** Read the bootstrap file (~/.loci/config.yaml) to get vault_path */
 function loadBootstrap(): BootstrapConfig | null {
   if (!existsSync(BOOTSTRAP_PATH)) return null;
   const raw = readFileSync(BOOTSTRAP_PATH, 'utf-8');
@@ -86,19 +86,19 @@ export function loadConfig(): TalosConfig | null {
 
 export function resolveConfig(): TalosConfig {
   const config = loadConfig();
-  if (!config) throw new Error('No TALOS configuration found. Run "talos setup" to get started.');
+  if (!config) throw new Error('No LOCI configuration found. Run "loci setup" to get started.');
   return config;
 }
 
 export function getVaultPath(config?: TalosConfig): string {
   const cfg = config ?? resolveConfig();
-  if (!cfg.vault_path) throw new Error('vault_path not configured. Run "talos setup".');
+  if (!cfg.vault_path) throw new Error('vault_path not configured. Run "loci setup".');
   return cfg.vault_path;
 }
 
 /**
  * Save split config:
- * - ~/.talos/config.yaml: only vault_path (bootstrap pointer)
+ * - ~/.loci/config.yaml: only vault_path (bootstrap pointer)
  * - $VAULT/_brain/config.yaml: everything else (machine_id, git, projects, etc.)
  */
 export function saveConfig(config: TalosConfig): void {

@@ -18,7 +18,7 @@ export async function execute(): Promise<void> {
   const vaultPath = getVaultPath(config);
   let fixes = 0;
 
-  console.log(chalk.bold('\nTALOS Doctor\n'));
+  console.log(chalk.bold('\nLOCI Doctor\n'));
 
   // 1. Check and create missing brain files
   const integrity = checkBrainIntegrity(vaultPath);

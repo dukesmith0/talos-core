@@ -10,7 +10,7 @@ export async function execute(): Promise<void> {
   const config = resolveConfig();
   const vaultPath = getVaultPath(config);
 
-  console.log(chalk.bold('\nTALOS Vault Stats\n'));
+  console.log(chalk.bold('\nLOCI Vault Stats\n'));
 
   const stats = computeVaultStats(vaultPath);
 

@@ -11,7 +11,7 @@ export async function execute(): Promise<void> {
   const vaultPath = getVaultPath(config);
 
   if (!isRepo(vaultPath)) {
-    console.error(chalk.red('Vault is not a git repository. Run "talos setup" to initialize.'));
+    console.error(chalk.red('Vault is not a git repository. Run "loci setup" to initialize.'));
     process.exitCode = 1;
     return;
   }
