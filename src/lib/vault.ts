@@ -115,6 +115,15 @@ export function addWikilinks(text: string, entities: Array<{ name: string; alias
       continue;
     }
 
+    // Heading detection — skip lines starting with #
+    if (!inFrontmatter && !inCodeBlock && /^#{1,6}\s/.test(line)) {
+      if (currentZone) zones.push({ text: currentZone, skip: currentSkip });
+      zones.push({ text: line + '\n', skip: true });
+      currentZone = '';
+      currentSkip = false;
+      continue;
+    }
+
     currentZone += line + '\n';
   }
   if (currentZone) zones.push({ text: currentZone, skip: currentSkip });
