@@ -2,7 +2,7 @@
  * doctor — Auto-repair brain files and vault state
  */
 
-import { existsSync, writeFileSync, statSync, readFileSync } from 'fs';
+import { existsSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import chalk from 'chalk';
 import { resolveConfig, getVaultPath } from '../lib/config.js';
@@ -34,7 +34,6 @@ export async function execute(): Promise<void> {
           '_brain/priorities.md': '# Priorities\n\n## Current Focus\n\n\n## Active Projects\n\n- \n',
           '_brain/schemas.yaml': 'fact:\n  required: [type, topic, confidence]\n  optional: [source]\n',
           '_brain/crash-buffer.md': '# Crash Buffer\n\nOpen threads from interrupted sessions.\n',
-          '_brain/state.yaml': 'last_session: ""\nsession_count: 0\nvault_version: "1.0.0"\n',
         };
         writeFileSync(fullPath, defaults[missing] ?? '', 'utf-8');
       }
@@ -46,7 +45,7 @@ export async function execute(): Promise<void> {
   }
 
   // 2. Create missing optional brain files
-  const optionalFiles = ['gaps.txt', 'conflicts.md', 'access-log.txt', 'changelog.md', 'search-log.txt'];
+  const optionalFiles = ['gaps.txt', 'conflicts.md'];
   let optionalFixes = 0;
   for (const f of optionalFiles) {
     const p = join(vaultPath, '_brain', f);
@@ -60,7 +59,7 @@ export async function execute(): Promise<void> {
   if (optionalFixes === 0) console.log(`  ${OK} All optional brain files present`);
 
   // 3. Ensure directories exist
-  const dirs = ['_brain/pinned', '_templates', 'journal', 'projects', 'references', 'ideas', 'career/contacts', 'career/applications'];
+  const dirs = ['_brain/pinned', '_templates', 'journal', 'projects', 'references', 'references/dashboards', 'references/courses', 'ideas', 'career/contacts', 'career/applications', 'tags/languages', 'tags/frameworks', 'tags/tools', 'tags/platforms', 'tags/domains', 'tags/methods', 'tags/topics'];
   for (const d of dirs) {
     const p = join(vaultPath, d);
     if (!existsSync(p)) {
@@ -87,21 +86,6 @@ export async function execute(): Promise<void> {
     fixes++;
   } else {
     console.log(`  ${OK} .gitignore present`);
-  }
-
-  // 6. Trim oversized logs
-  for (const logFile of ['access-log.txt', 'search-log.txt']) {
-    const p = join(vaultPath, '_brain', logFile);
-    if (existsSync(p)) {
-      const size = statSync(p).size;
-      if (size > 1048576) { // > 1MB
-        const lines = readFileSync(p, 'utf-8').split('\n');
-        const trimmed = lines.slice(-1000).join('\n');
-        writeFileSync(p, trimmed, 'utf-8');
-        console.log(`  ${FIX} Trimmed ${logFile} (${Math.round(size / 1024)}KB → ${Math.round(trimmed.length / 1024)}KB)`);
-        fixes++;
-      }
-    }
   }
 
   console.log(fixes > 0

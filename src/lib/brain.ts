@@ -5,6 +5,8 @@
 import { readFileSync, writeFileSync, existsSync, appendFileSync, statSync } from 'fs';
 import { join } from 'path';
 import yaml from 'js-yaml';
+import { globSync } from 'glob';
+import matter from 'gray-matter';
 import { ensureDir } from './vault.js';
 
 // ── Link Index ────────────────────────────────────────────────────
@@ -39,6 +41,7 @@ export interface WordEntry {
   word: string;
   doc_count: number;
   total_count: number;
+  tfidf?: number;
 }
 
 export function readWordFreq(vaultPath: string): WordEntry[] {
@@ -46,30 +49,21 @@ export function readWordFreq(vaultPath: string): WordEntry[] {
   if (!existsSync(path)) return [];
   const lines = readFileSync(path, 'utf-8').split('\n').filter(l => l && !l.startsWith('#'));
   return lines.map(l => {
-    const [word, doc_count, total_count] = l.split('\t');
-    return { word, doc_count: parseInt(doc_count) || 0, total_count: parseInt(total_count) || 0 };
+    const parts = l.split('\t');
+    return {
+      word: parts[0],
+      doc_count: parseInt(parts[1]) || 0,
+      total_count: parseInt(parts[2]) || 0,
+      tfidf: parseFloat(parts[3]) || 0,
+    };
   });
 }
 
 export function writeWordFreq(vaultPath: string, entries: WordEntry[]): void {
   const path = join(vaultPath, '_brain', 'word-freq.txt');
-  const header = `# word\tdoc_count\ttotal_count\n# updated: ${new Date().toISOString()}\n`;
-  const body = entries.map(e => `${e.word}\t${e.doc_count}\t${e.total_count}`).join('\n');
+  const header = `# word\tdoc_count\ttotal_count\ttfidf\n# updated: ${new Date().toISOString()}\n`;
+  const body = entries.map(e => `${e.word}\t${e.doc_count}\t${e.total_count}\t${(e.tfidf ?? 0).toFixed(3)}`).join('\n');
   writeFileSync(path, header + body + '\n', 'utf-8');
-}
-
-// ── Access Log ────────────────────────────────────────────────────
-
-export function logAccess(vaultPath: string, filePath: string): void {
-  const logPath = join(vaultPath, '_brain', 'access-log.txt');
-  appendFileSync(logPath, `${new Date().toISOString()}\t${filePath}\n`, 'utf-8');
-}
-
-// ── Search Log ────────────────────────────────────────────────────
-
-export function logSearch(vaultPath: string, mode: string, query: string, resultCount: number): void {
-  const logPath = join(vaultPath, '_brain', 'search-log.txt');
-  appendFileSync(logPath, `${new Date().toISOString()}\t${mode}\t${query}\t${resultCount}\n`, 'utf-8');
 }
 
 // ── Knowledge Gaps ────────────────────────────────────────────────
@@ -93,39 +87,6 @@ export function appendConflict(vaultPath: string, entry: string): void {
   appendFileSync(path, `\n### ${date}\n${entry}\n`, 'utf-8');
 }
 
-// ── Changelog ─────────────────────────────────────────────────────
-
-export function logChange(vaultPath: string, entry: string): void {
-  const path = join(vaultPath, '_brain', 'changelog.md');
-  const date = new Date().toISOString().slice(0, 10);
-  const time = new Date().toISOString().slice(11, 16);
-
-  if (!existsSync(path)) {
-    writeFileSync(path, `# Brain Changelog\n\n## ${date}\n- ${time} ${entry}\n`, 'utf-8');
-    return;
-  }
-
-  let content = readFileSync(path, 'utf-8');
-  const dateSection = `## ${date}`;
-  const dateSectionIndex = content.indexOf(dateSection);
-  if (dateSectionIndex !== -1) {
-    // Insert entry right after the date section header line
-    const insertPos = content.indexOf('\n', dateSectionIndex) + 1;
-    content = content.slice(0, insertPos) + `- ${time} ${entry}\n` + content.slice(insertPos);
-  } else {
-    // Add new date section after the first heading (# Brain Changelog)
-    const headerIndex = content.indexOf('# Brain Changelog');
-    if (headerIndex !== -1) {
-      const insertPos = content.indexOf('\n', headerIndex) + 1;
-      content = content.slice(0, insertPos) + `\n${dateSection}\n- ${time} ${entry}\n` + content.slice(insertPos);
-    } else {
-      // No header — just prepend
-      content = `# Brain Changelog\n\n${dateSection}\n- ${time} ${entry}\n` + content;
-    }
-  }
-  writeFileSync(path, content, 'utf-8');
-}
-
 // ── Brain Integrity ───────────────────────────────────────────────
 
 const REQUIRED_FILES = [
@@ -133,7 +94,6 @@ const REQUIRED_FILES = [
   '_brain/priorities.md',
   '_brain/schemas.yaml',
   '_brain/crash-buffer.md',
-  '_brain/state.yaml',
 ];
 
 export function checkBrainIntegrity(vaultPath: string): { ok: boolean; missing: string[] } {
@@ -150,4 +110,92 @@ export function getFileFreshness(filePath: string): { exists: boolean; ageMinute
   const stat = statSync(filePath);
   const ageMs = Date.now() - stat.mtimeMs;
   return { exists: true, ageMinutes: Math.floor(ageMs / 60000) };
+}
+
+// ── Vault Stats (computed metrics) ─────────────────────────────────
+
+export interface VaultStats {
+  totalNotes: number;
+  totalHubs: number;
+  originCounts: { direct: number; inferred: number; generated: number; unset: number };
+  hubHealth: Array<{ name: string; category: string; inlinks: number; typeCount: number; score: number }>;
+  staleFacts: string[];
+  tfidfTop: Array<{ word: string; tfidf: number }>;
+}
+
+export function computeVaultStats(vaultPath: string): VaultStats {
+
+  const allFiles = globSync('**/*.md', { cwd: vaultPath, ignore: ['_brain/**', '_templates/**', '.git/**'] });
+  const hubFiles = globSync('tags/**/*.md', { cwd: vaultPath });
+  const index = readLinkIndex(vaultPath);
+
+  // Origin distribution
+  const originCounts = { direct: 0, inferred: 0, generated: 0, unset: 0 };
+  const staleFacts: string[] = [];
+  const now = Date.now();
+
+  for (const f of allFiles) {
+    try {
+      const raw = readFileSync(join(vaultPath, f), 'utf-8');
+      const { data } = matter(raw);
+      const origin = String(data.origin || '');
+      if (origin === 'direct') originCounts.direct++;
+      else if (origin === 'inferred') originCounts.inferred++;
+      else if (origin === 'generated') originCounts.generated++;
+      else originCounts.unset++;
+
+      // Stale fact detection: confidence=medium + no last_verified or >30 days
+      if (data.confidence === 'medium' && data.type === 'fact') {
+        const lv = data.last_verified ? new Date(data.last_verified as string).getTime() : 0;
+        if (lv === 0 || (now - lv) > 30 * 86400000) {
+          staleFacts.push(f);
+        }
+      }
+    } catch { /* skip */ }
+  }
+
+  // Hub health
+  const hubHealth: VaultStats['hubHealth'] = [];
+  for (const hf of hubFiles) {
+    const normalized = hf.replace(/\\/g, '/');
+    const entry = index.files[normalized];
+    const inlinks = entry?.linked_from?.length ?? 0;
+    // Count distinct types of linked notes
+    const linkedTypes = new Set<string>();
+    if (entry?.linked_from) {
+      for (const link of entry.linked_from) {
+        try {
+          const raw = readFileSync(join(vaultPath, link), 'utf-8');
+          const { data } = matter(raw);
+          if (data.type) linkedTypes.add(String(data.type));
+        } catch { /* skip */ }
+      }
+    }
+    const parts = normalized.split('/');
+    const category = parts.length >= 2 ? parts[1] : 'unknown';
+    const name = parts[parts.length - 1].replace('.md', '');
+    // Score: (inlinks / max(1, totalNotes/10)) * (typeCount / 5) * 10, clamped 0-10
+    const score = Math.min(10, Math.round(
+      (Math.min(inlinks, 10) / 10 * 5) + (Math.min(linkedTypes.size, 5) / 5 * 5)
+    ));
+    hubHealth.push({ name, category, inlinks, typeCount: linkedTypes.size, score });
+  }
+  hubHealth.sort((a, b) => a.score - b.score);
+
+  // TF-IDF top terms
+  const wordFreq = readWordFreq(vaultPath);
+  const tfidfTop = wordFreq
+    .filter(w => (w.tfidf ?? 0) > 0)
+    .sort((a, b) => (b.tfidf ?? 0) - (a.tfidf ?? 0))
+    .slice(0, 10)
+    .map(w => ({ word: w.word, tfidf: w.tfidf ?? 0 }));
+
+  return {
+    totalNotes: allFiles.length,
+    totalHubs: hubFiles.length,
+    originCounts,
+    hubHealth,
+    staleFacts,
+    tfidfTop,
+  };
 }

@@ -119,4 +119,12 @@ program
     await execute();
   });
 
+program
+  .command('stats')
+  .description('Computed vault quality metrics (origin, hub health, TF-IDF)')
+  .action(async () => {
+    const { execute } = await import('./commands/stats.js');
+    await execute();
+  });
+
 program.parse();

@@ -133,18 +133,8 @@ export async function execute(): Promise<void> {
 
     writeFileSync(join(vaultPath, '_brain', 'crash-buffer.md'), '# Crash Buffer\n\nOpen threads from interrupted sessions.\n', 'utf-8');
 
-    const stateYaml = yaml.dump({
-      last_session: new Date().toISOString(),
-      session_count: 0,
-      vault_version: '1.0.0',
-    });
-    writeFileSync(join(vaultPath, '_brain', 'state.yaml'), stateYaml, 'utf-8');
-
-    writeFileSync(join(vaultPath, '_brain', 'skill-config.yaml'), '# Skill Configuration\n', 'utf-8');
-    writeFileSync(join(vaultPath, '_brain', 'hooks-config.yaml'), '# Hooks Configuration\n', 'utf-8');
-
-    // Create tracking files (hooks and skills expect these to exist)
-    const touchFiles = ['gaps.txt', 'conflicts.md', 'access-log.txt', 'changelog.md', 'search-log.txt'];
+    // Create tracking files (skills expect these to exist)
+    const touchFiles = ['gaps.txt', 'conflicts.md'];
     for (const f of touchFiles) {
       const p = join(vaultPath, '_brain', f);
       if (!existsSync(p)) writeFileSync(p, '', 'utf-8');
@@ -153,6 +143,8 @@ export async function execute(): Promise<void> {
     // Create content directories
     ensureDir(join(vaultPath, 'projects'));
     ensureDir(join(vaultPath, 'references'));
+    ensureDir(join(vaultPath, 'references', 'dashboards'));
+    ensureDir(join(vaultPath, 'references', 'courses'));
     ensureDir(join(vaultPath, 'ideas'));
     ensureDir(join(vaultPath, 'career', 'contacts'));
     ensureDir(join(vaultPath, 'career', 'applications'));
@@ -194,6 +186,74 @@ export async function execute(): Promise<void> {
       copyFileSync(indexSrc, indexDest);
     }
     console.log(chalk.green(`  Installed ${templatesInstalled} template(s)`));
+
+    // Step 7b: Obsidian config (QuickAdd, graph, Bases)
+    const obsDir = join(vaultPath, '.obsidian');
+    ensureDir(obsDir);
+
+    // Graph config with color groups
+    const graphPath = join(obsDir, 'graph.json');
+    if (!existsSync(graphPath)) {
+      writeFileSync(graphPath, JSON.stringify({
+        search: '-path:_brain -path:_templates',
+        showTags: false, showAttachments: false, hideUnresolved: true, showOrphans: false,
+        colorGroups: [
+          { query: 'path:tags', color: { a: 1, rgb: 4886754 } },
+          { query: 'path:projects', color: { a: 1, rgb: 3329330 } },
+          { query: 'path:ideas', color: { a: 1, rgb: 16761095 } },
+          { query: 'path:career', color: { a: 1, rgb: 16744448 } },
+          { query: 'path:journal', color: { a: 1, rgb: 8421504 } },
+          { query: 'path:references', color: { a: 1, rgb: 10066329 } },
+        ],
+        showArrow: true, nodeSizeMultiplier: 1.2, lineSizeMultiplier: 0.8,
+      }, null, 2), 'utf-8');
+      console.log(chalk.green('  Created .obsidian/graph.json'));
+    }
+
+    // QuickAdd config with 4 capture macros
+    const qaDir = join(obsDir, 'plugins', 'quickadd');
+    ensureDir(qaDir);
+    const qaPath = join(qaDir, 'data.json');
+    if (!existsSync(qaPath)) {
+      const qaChoices = [
+        { id: 'quick-fact', name: 'Quick Fact', type: 'Template', command: true, templatePath: '_templates/quick-fact.md', fileNameFormat: { enabled: true, format: 'references/{{VALUE:Topic}}' }, folder: { enabled: true, folders: ['references'] }, openFile: true },
+        { id: 'quick-reference', name: 'Quick Reference', type: 'Template', command: true, templatePath: '_templates/quick-reference.md', fileNameFormat: { enabled: true, format: 'references/{{VALUE:Title}}' }, folder: { enabled: true, folders: ['references'] }, openFile: true },
+        { id: 'quick-contact', name: 'Quick Contact', type: 'Template', command: true, templatePath: '_templates/quick-contact.md', fileNameFormat: { enabled: true, format: 'career/contacts/{{VALUE:Full Name}}' }, folder: { enabled: true, folders: ['career/contacts'] }, openFile: true },
+        { id: 'quick-application', name: 'Quick Application', type: 'Template', command: true, templatePath: '_templates/quick-application.md', fileNameFormat: { enabled: true, format: 'career/applications/{{VALUE:Company}}-{{VALUE:Role/Position}}' }, folder: { enabled: true, folders: ['career/applications'] }, openFile: true },
+      ];
+      writeFileSync(qaPath, JSON.stringify({ choices: qaChoices, inputPrompt: 'single-line', version: '2.12.0' }, null, 2), 'utf-8');
+      console.log(chalk.green('  Created QuickAdd config (4 capture macros)'));
+    }
+
+    // Obsidian Bases (database views)
+    const dashDir = join(vaultPath, 'references', 'dashboards');
+    const basesFiles: Record<string, object> = {
+      'applications-pipeline.base': {
+        headerConfig: { company: { type: 'text' }, role: { type: 'text' }, status: { type: 'text' }, fit_score: { type: 'number' }, applied_date: { type: 'date' } },
+        filter: { conjunction: 'and', conditions: [{ field: 'type', operator: 'is', value: 'application' }] },
+        sort: [{ field: 'fit_score', direction: 'desc' }],
+        sources: { type: 'folder', folder: 'career/applications' },
+      },
+      'contacts-crm.base': {
+        headerConfig: { name: { type: 'text' }, company: { type: 'text' }, role: { type: 'text' }, met: { type: 'text' } },
+        filter: { conjunction: 'and', conditions: [{ field: 'type', operator: 'is', value: 'contact' }] },
+        sort: [{ field: 'name', direction: 'asc' }],
+        sources: { type: 'folder', folder: 'career/contacts' },
+      },
+      'projects-overview.base': {
+        headerConfig: { 'file.name': { type: 'text' }, status: { type: 'text' }, tags: { type: 'tags' } },
+        filter: { conjunction: 'and', conditions: [{ field: 'type', operator: 'is', value: 'project' }] },
+        sort: [{ field: 'file.mtime', direction: 'desc' }],
+        sources: { type: 'folder', folder: 'projects' },
+      },
+    };
+    for (const [filename, content] of Object.entries(basesFiles)) {
+      const p = join(dashDir, filename);
+      if (!existsSync(p)) {
+        writeFileSync(p, JSON.stringify(content, null, 2), 'utf-8');
+      }
+    }
+    console.log(chalk.green('  Created Obsidian Bases (3 database views)'));
 
     // Step 8: Git init + optional remote
     if (gitCheck.ok) {

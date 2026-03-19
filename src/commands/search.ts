@@ -5,7 +5,7 @@
 import chalk from 'chalk';
 import { resolveConfig, getVaultPath } from '../lib/config.js';
 import { search, vsearch, query, registerCleanup } from '../lib/qmd.js';
-import { logSearch } from '../lib/brain.js';
+import { logGap } from '../lib/brain.js';
 
 interface SearchOptions {
   query: string;
@@ -40,19 +40,16 @@ export async function execute(options: SearchOptions): Promise<void> {
         break;
     }
 
-    logSearch(vaultPath, mode, options.query, results.length);
-
     if (results.length === 0) {
       console.log(chalk.yellow('No results found.'));
       console.log(chalk.dim('This query has been logged to _brain/gaps.txt'));
-      const { logGap } = await import('../lib/brain.js');
       logGap(vaultPath, options.query);
       return;
     }
 
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
-      const file = (r as Record<string, unknown>).path ?? (r as Record<string, unknown>).file ?? 'unknown';
+      const file = (r as Record<string, unknown>).filepath ?? (r as Record<string, unknown>).displayPath ?? (r as Record<string, unknown>).path ?? 'unknown';
       const score = (r as Record<string, unknown>).score;
       const scoreStr = typeof score === 'number' ? chalk.dim(` (${score.toFixed(3)})`) : '';
       console.log(`  ${chalk.bold(`${i + 1}.`)} ${file}${scoreStr}`);

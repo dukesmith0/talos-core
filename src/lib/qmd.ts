@@ -56,6 +56,29 @@ export async function query(query: string, limit = 10): Promise<HybridQueryResul
   return store.search({ query, limit });
 }
 
+export async function expandQuery(q: string): Promise<unknown> {
+  const store = await getStore();
+  return store.expandQuery(q);
+}
+
+export async function getDoc(path: string): Promise<string | null> {
+  const store = await getStore();
+  try {
+    return await store.getDocumentBody(path) as string;
+  } catch {
+    return null;
+  }
+}
+
+export async function multiGetDocs(paths: string[]): Promise<unknown> {
+  const store = await getStore();
+  try {
+    return await store.multiGet(paths.join(','));
+  } catch {
+    return {};
+  }
+}
+
 export async function updateIndex(): Promise<UpdateResult> {
   const store = await getStore();
   return store.update();

@@ -66,13 +66,19 @@ export async function execute(): Promise<void> {
     }
   }
 
-  // Convert to WordEntry[] sorted by doc_count desc
+  // Convert to WordEntry[] with TF-IDF scores
+  const N = files.length; // total documents
   const entries: WordEntry[] = [];
   for (const [word, stats] of wordStats) {
+    const df = stats.docs.size;
+    // TF-IDF: total frequency × log(N / df)
+    // Higher score = word is frequent but concentrated in few documents (distinctive)
+    const tfidf = N > 0 && df > 0 ? stats.total * Math.log(N / df) : 0;
     entries.push({
       word,
-      doc_count: stats.docs.size,
+      doc_count: df,
       total_count: stats.total,
+      tfidf: Math.round(tfidf * 1000) / 1000,
     });
   }
   entries.sort((a, b) => b.doc_count - a.doc_count || b.total_count - a.total_count);
@@ -83,5 +89,10 @@ export async function execute(): Promise<void> {
   if (entries.length > 0) {
     const top5 = entries.slice(0, 5).map(e => `${e.word}(${e.doc_count})`).join(', ');
     console.log(chalk.dim(`  Top words: ${top5}`));
+
+    // Show top TF-IDF terms (most distinctive)
+    const tfidfSorted = [...entries].sort((a, b) => (b.tfidf ?? 0) - (a.tfidf ?? 0));
+    const topTfidf = tfidfSorted.slice(0, 5).map(e => `${e.word}(${e.tfidf})`).join(', ');
+    console.log(chalk.dim(`  Top TF-IDF: ${topTfidf}`));
   }
 }

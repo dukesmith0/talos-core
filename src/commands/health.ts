@@ -2,7 +2,7 @@
  * health — System health checks
  */
 
-import { existsSync, statSync } from 'fs';
+import { existsSync, statSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
 import chalk from 'chalk';
@@ -146,18 +146,13 @@ export async function execute(): Promise<void> {
     check('Conflicts', true, 'none');
   }
 
-  // Access log size
-  const accessLogPath = join(vaultPath, '_brain', 'access-log.txt');
-  if (existsSync(accessLogPath)) {
-    const size = statSync(accessLogPath).size;
-    const kb = Math.round(size / 1024);
-    if (size > 1048576) {
-      warn('Access log', `${kb}KB — consider trimming`);
-    } else {
-      check('Access log', true, `${kb}KB`);
-    }
+  // Knowledge gaps
+  const gapsPath = join(vaultPath, '_brain', 'gaps.txt');
+  if (existsSync(gapsPath)) {
+    const lines = readFileSync(gapsPath, 'utf-8').split('\n').filter(l => l.trim());
+    check('Knowledge gaps', true, `${lines.length} recorded`);
   } else {
-    check('Access log', true, 'empty');
+    check('Knowledge gaps', true, 'none');
   }
 
   console.log('');
